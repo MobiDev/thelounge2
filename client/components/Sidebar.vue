@@ -2,7 +2,7 @@
 	<aside id="sidebar" ref="sidebar">
 		<div class="scrollable-area">
 			<div class="logo-container">
-				<img
+				<!-- <img
 					:src="`img/logo-${isPublic() ? 'horizontal-' : ''}transparent-bg.svg`"
 					class="logo"
 					alt="The Lounge"
@@ -13,8 +13,8 @@
 					class="logo-inverted"
 					alt="The Lounge"
 					role="presentation"
-				/>
-				<span
+				/> -->
+				<!-- <span
 					v-if="isDevelopment"
 					title="The Lounge has been built in development mode"
 					:style="{
@@ -24,7 +24,7 @@
 						borderRadius: '4px',
 						fontSize: '12px',
 					}"
-					>DEVELOPER</span
+					>DEVELOPER</span -->
 				>
 			</div>
 			<NetworkList />

@@ -69,6 +69,16 @@ type Ldap = {
 	baseDN?: string;
 };
 
+type Webreq = {
+	enable: boolean;
+	checkpassword: boolean;
+	url: "";
+	method: string;
+	// replaces $username and $password with actual values
+	body: string;
+	authorisedResponse: string;
+};
+
 type TlsOptions = any;
 
 type Debug = {
@@ -102,6 +112,7 @@ export type ConfigType = {
 	identd: Identd;
 	oidentd?: string;
 	ldap: Ldap;
+	webreq: Webreq;
 	debug: Debug;
 	themeColor: string;
 };

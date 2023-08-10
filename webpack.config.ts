@@ -7,15 +7,15 @@ import {VueLoaderPlugin} from "vue-loader";
 import babelConfig from "./babel.config.cjs";
 import Helper from "./server/helper";
 
-const tsCheckerPlugin = new ForkTsCheckerWebpackPlugin({
-	typescript: {
-		diagnosticOptions: {
-			semantic: true,
-			syntactic: true,
-		},
-		build: true,
-	},
-});
+// const tsCheckerPlugin = new ForkTsCheckerWebpackPlugin({
+// 	typescript: {
+// 		diagnosticOptions: {
+// 			semantic: true,
+// 			syntactic: true,
+// 		},
+// 		build: true,
+// 	},
+// });
 
 const vueLoaderPlugin = new VueLoaderPlugin();
 
@@ -107,7 +107,7 @@ const config: webpack.Configuration = {
 		json3: "JSON", // socket.io uses json3.js, but we do not target any browsers that need it
 	},
 	plugins: [
-		tsCheckerPlugin,
+		// tsCheckerPlugin,
 		vueLoaderPlugin,
 		new webpack.DefinePlugin({
 			__VUE_PROD_DEVTOOLS__: false,
@@ -199,7 +199,7 @@ export default (env: any, argv: any) => {
 
 		// Disable plugins like copy files, it is not required
 		config.plugins = [
-			tsCheckerPlugin,
+			// tsCheckerPlugin,
 			vueLoaderPlugin,
 			miniCssExtractPlugin,
 			// Client tests that require Vue may end up requireing socket.io
