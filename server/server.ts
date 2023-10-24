@@ -18,6 +18,7 @@ import Identification from "./identification";
 import changelog from "./plugins/changelog";
 import inputs from "./plugins/inputs";
 import Auth from "./plugins/auth";
+import {BaseClient, Issuer, generators} from "openid-client";
 
 import themes, {ThemeForClient} from "./plugins/packages/themes";
 themes.loadLocalThemes();
@@ -51,6 +52,7 @@ export type ClientConfiguration = Pick<
 > & {
 	fileUpload: boolean;
 	ldapEnabled: boolean;
+	openidEnabled: boolean;
 	isUpdateAvailable: boolean;
 	applicationServerKey: string;
 	version: string;
@@ -63,6 +65,16 @@ export type ClientConfiguration = Pick<
 
 // A random number that will force clients to reload the page if it differs
 const serverHash = Math.floor(Date.now() * Math.random());
+
+// OpenID code generators and verifiers
+const code_verifier = generators.codeVerifier();
+const code_challenge = generators.codeChallenge(code_verifier);
+
+let issuer: Issuer;
+
+let openidClient: BaseClient;
+
+let issuerURL: string;
 
 let manager: ClientManager | null = null;
 
@@ -99,6 +111,21 @@ export default async function (
 		.use(express.static(Utils.getFileFromRelativeToRoot("public"), staticOptions))
 		.use("/storage/", express.static(Config.getStoragePath(), staticOptions));
 
+	issuer = await Issuer.discover(Config.values.openid.issuerURL);
+	log.info("Discovered OpenID issuer", issuer.metadata.issuer);
+	openidClient = new issuer.Client({
+		client_id: Config.values.openid.clientID,
+		client_secret: Config.values.openid.secret,
+		redirect_uris: [Config.values.openid.baseURL],
+		response_types: ["code"],
+	});
+	const redirectUrl = openidClient.authorizationUrl({
+		scope: "openid roles email profile",
+		code_challenge,
+		code_challenge_method: "S256",
+	});
+	issuerURL = redirectUrl;
+
 	if (Config.values.fileUpload.enable) {
 		Uploader.router(app);
 	}
@@ -131,9 +158,9 @@ export default async function (
 		return res.sendFile(path.join(packagePath, fileName));
 	});
 
-	if (Config.values.public && (Config.values.ldap || {}).enable) {
+	if (Config.values.public && (Config.values.ldap || Config.values.openid || {}).enable) {
 		log.warn(
-			"Server is public and set to use LDAP. Set to private mode if trying to use LDAP authentication."
+			"Server is public and set to use LDAP or OpenID. Set to private mode if trying to use LDAP or OpenID authentication."
 		);
 	}
 
@@ -240,9 +267,14 @@ export default async function (
 
 			if (Config.values.public) {
 				performAuthentication.call(socket, {});
+				void performAuthentication.call(socket, {});
 			} else {
 				socket.on("auth:perform", performAuthentication);
-				socket.emit("auth:start", serverHash);
+				socket.emit("auth:start", {
+					serverHash,
+					openidEnabled: Config.values.openid.enable && !Config.values.public,
+					openidInit: issuerURL,
+				});
 			}
 		});
 
@@ -523,7 +555,7 @@ function initializeClient(
 		}
 	});
 
-	if (!Config.values.public && !Config.values.ldap.enable) {
+	if (!Config.values.public && !Config.values.ldap.enable && !Config.values.openid.enable) {
 		socket.on("change-password", (data) => {
 			if (_.isPlainObject(data)) {
 				const old = data.old_password;
@@ -867,6 +899,7 @@ function getClientConfiguration(): ClientConfiguration {
 
 	config.fileUpload = Config.values.fileUpload.enable;
 	config.ldapEnabled = Config.values.ldap.enable;
+	config.openidEnabled = Config.values.openid.enable;
 
 	if (!config.lockNetwork) {
 		config.defaults = _.clone(Config.values.defaults);
@@ -904,7 +937,7 @@ function getServerConfiguration(): ServerConfiguration {
 	return {...Config.values, ...{stylesheets: packages.getStylesheets()}};
 }
 
-function performAuthentication(this: Socket, data) {
+async function performAuthentication(this: Socket, data) {
 	if (!_.isPlainObject(data)) {
 		return;
 	}
@@ -987,7 +1020,7 @@ function performAuthentication(this: Socket, data) {
 		}
 
 		// If authorization succeeded but there is no loaded user,
-		// load it and find the user again (this happens with LDAP)
+		// load it and find the user again (this happens with LDAP and OpenID)
 		if (!client) {
 			client = manager!.loadUser(data.user);
 		}
@@ -1005,6 +1038,39 @@ function performAuthentication(this: Socket, data) {
 			token = providedToken;
 
 			return authCallback(true);
+		}
+	}
+
+	if (Config.values.openid.enable) {
+		try {
+			const tokenSet = await openidClient.callback(
+				Config.values.openid.baseURL,
+				openidClient.callbackParams(data.password),
+				{code_verifier}
+			);
+			// TODO: OpenID role check
+			const userinfo = await openidClient.userinfo(tokenSet);
+			console.log(userinfo);
+			log.info(JSON.stringify(userinfo));
+			data.user = userinfo[Config.values.openid.usernameClaim];
+
+			if (Config.values.openid.roleClaim !== "") {
+				const availabeRoles = _.get(userinfo, Config.values.openid.roleClaim) as string[];
+				console.log(availabeRoles);
+				const requiredRoles = Config.values.openid.requiredRoles;
+				const userAuthorized = requiredRoles.every((element) =>
+					availabeRoles.includes(element)
+				);
+
+				if (!userAuthorized) {
+					data.user = "";
+					data.password = "";
+				}
+			}
+		} catch (e) {
+			// Guaranteed to fail, probably
+			data.user = "";
+			data.password = "";
 		}
 	}
 

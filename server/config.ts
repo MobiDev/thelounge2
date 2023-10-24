@@ -69,6 +69,18 @@ type Ldap = {
 	baseDN?: string;
 };
 
+type OpenID = {
+	enable: boolean;
+	issuerURL: string;
+	baseURL: string;
+	clientID: string;
+	secret: string;
+	logout: boolean;
+	usernameClaim: string;
+	roleClaim: string;
+	requiredRoles: string[];
+};
+
 type Webreq = {
 	enable: boolean;
 	checkpassword: boolean;
@@ -112,6 +124,7 @@ export type ConfigType = {
 	identd: Identd;
 	oidentd?: string;
 	ldap: Ldap;
+	openid: OpenID;
 	webreq: Webreq;
 	debug: Debug;
 	themeColor: string;

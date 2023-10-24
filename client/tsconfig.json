@@ -29,6 +29,7 @@
     "../server/plugins/auth.ts",
     "../server/plugins/auth/local.ts",
     "../server/plugins/auth/ldap.ts",
+    "../server/plugins/auth/openid.ts",
     "../server/plugins/auth/webreq.ts",
     "../server/plugins/irc-events/link.ts",
     "../server/command-line/utils.ts",

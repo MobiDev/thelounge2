@@ -26,11 +26,19 @@ socket.on("auth:failed", async function () {
 	await showSignIn();
 });
 
-socket.on("auth:start", async function (serverHash) {
+socket.on("auth:start", async function (data) {
+	const serverHash = data.serverHash;
+	const openidEnabled = data.openidEnabled;
+	const openidInit = data.openidInit;
 	// If we reconnected and serverHash differs, that means the server restarted
 	// And we will reload the page to grab the latest version
 	if (lastServerHash && serverHash !== lastServerHash) {
 		return reloadPage("Server restarted, reloading…");
+	} else if (openidEnabled && window.location.search.includes("code=")) {
+		socket.emit("auth:perform", {user: "", password: window.location.href});
+		window.history.replaceState({}, document.title, "/");
+	} else if (openidEnabled) {
+		window.location.replace(openidInit);
 	}
 
 	lastServerHash = serverHash;
